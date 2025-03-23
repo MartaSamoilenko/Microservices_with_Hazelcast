@@ -1,0 +1,117 @@
+services:
+  hazelcast-1:
+    image: hazelcast/hazelcast:5.2.1
+    container_name: hazelcast-1
+    ports:
+      - "5701:5701"
+    environment:
+      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-1:5701
+    networks:
+      - logging-network
+
+  hazelcast-2:
+    image: hazelcast/hazelcast:5.2.1
+    container_name: hazelcast-2
+    ports:
+      - "5702:5701"
+    environment:
+      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-2:5701
+    networks:
+      - logging-network
+
+  hazelcast-3:
+    image: hazelcast/hazelcast:5.2.1
+    container_name: hazelcast-3
+    ports:
+      - "5703:5701"
+    environment:
+      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-3:5701
+    networks:
+      - logging-network
+
+  logging-service-1:
+    build:
+      context: ./logging-service
+    container_name: logging-service-1
+    ports:
+      - "8001:8000"
+    environment:
+      - LOGGING_SERVICE_PORT=8000
+      - INSTANCE_ID=logging-service-1
+      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+    depends_on:
+      - hazelcast-1
+      - hazelcast-2
+      - hazelcast-3
+    networks:
+      - logging-network
+    restart: on-failure
+
+  logging-service-2:
+    build:
+      context: ./logging-service
+    container_name: logging-service-2
+    ports:
+      - "8002:8000"
+    environment:
+      - LOGGING_SERVICE_PORT=8000
+      - INSTANCE_ID=logging-service-2
+      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+    depends_on:
+      - hazelcast-1
+      - hazelcast-2
+      - hazelcast-3
+    networks:
+      - logging-network
+    restart: on-failure
+
+  logging-service-3:
+    build:
+      context: ./logging-service
+    container_name: logging-service-3
+    ports:
+      - "8003:8000"
+    environment:
+      - LOGGING_SERVICE_PORT=8000
+      - INSTANCE_ID=logging-service-3
+      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+    depends_on:
+      - hazelcast-1
+      - hazelcast-2
+      - hazelcast-3
+    networks:
+      - logging-network
+    restart: on-failure
+
+  message-service:
+    build:
+      context: ./message-service
+    container_name: message-service
+    ports:
+      - "9005:8000" 
+    environment:
+      - MESSAGE_SERVICE_PORT=8000
+    networks:
+      - logging-network
+
+  facade-service:
+    build:
+      context: ./facade-service
+    container_name: facade-service
+    ports:
+      - "8000:8000"
+    environment:
+      - FACADE_SERVICE_PORT=8000
+      - LOGGING_SERVICES=http://logging-service-1:8000,http://logging-service-2:8000,http://logging-service-3:8000
+      - MESSAGE_SERVICE_URL=http://message-service:8000 
+    depends_on:
+      - logging-service-1
+      - logging-service-2
+      - logging-service-3
+      - message-service
+    networks:
+      - logging-network
+
+networks:
+  logging-network:
+    driver: bridge
