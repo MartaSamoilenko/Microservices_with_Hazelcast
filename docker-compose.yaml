@@ -1,117 +1,158 @@
+version: '3.8'
 services:
-  hazelcast-1:
-    image: hazelcast/hazelcast:5.2.1
-    container_name: hazelcast-1
-    ports:
-      - "5701:5701"
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
     environment:
-      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-1:5701
-    networks:
-      - logging-network
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
 
-  hazelcast-2:
-    image: hazelcast/hazelcast:5.2.1
-    container_name: hazelcast-2
-    ports:
-      - "5702:5701"
-    environment:
-      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-2:5701
-    networks:
-      - logging-network
-
-  hazelcast-3:
-    image: hazelcast/hazelcast:5.2.1
-    container_name: hazelcast-3
-    ports:
-      - "5703:5701"
-    environment:
-      - JAVA_OPTS=-Dhazelcast.local.publicAddress=hazelcast-3:5701
-    networks:
-      - logging-network
-
-  logging-service-1:
-    build:
-      context: ./logging-service
-    container_name: logging-service-1
-    ports:
-      - "8001:8000"
-    environment:
-      - LOGGING_SERVICE_PORT=8000
-      - INSTANCE_ID=logging-service-1
-      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+  kafka1:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka1
     depends_on:
-      - hazelcast-1
-      - hazelcast-2
-      - hazelcast-3
-    networks:
-      - logging-network
-    restart: on-failure
-
-  logging-service-2:
-    build:
-      context: ./logging-service
-    container_name: logging-service-2
+      - zookeeper
     ports:
-      - "8002:8000"
+      - "9092:9092"
     environment:
-      - LOGGING_SERVICE_PORT=8000
-      - INSTANCE_ID=logging-service-2
-      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka1:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+  kafka2:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka2
     depends_on:
-      - hazelcast-1
-      - hazelcast-2
-      - hazelcast-3
-    networks:
-      - logging-network
-    restart: on-failure
-
-  logging-service-3:
-    build:
-      context: ./logging-service
-    container_name: logging-service-3
+      - zookeeper
     ports:
-      - "8003:8000"
+      - "9093:9092"
     environment:
-      - LOGGING_SERVICE_PORT=8000
-      - INSTANCE_ID=logging-service-3
-      - HAZELCAST_NODES=hazelcast-1:5701,hazelcast-2:5701,hazelcast-3:5701
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka2:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+  kafka3:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka3
     depends_on:
-      - hazelcast-1
-      - hazelcast-2
-      - hazelcast-3
-    networks:
-      - logging-network
-    restart: on-failure
-
-  message-service:
-    build:
-      context: ./message-service
-    container_name: message-service
+      - zookeeper
     ports:
-      - "9005:8000" 
+      - "9094:9092"
     environment:
-      - MESSAGE_SERVICE_PORT=8000
-    networks:
-      - logging-network
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka3:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+
+  logging-service1:
+    build: 
+      context: ./logging-service
+    container_name: logging-service1
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+      CONSUMER_GROUP: "logging-group-1"
+      LOGGING_SERVICE_PORT: 5001
+    ports:
+      - "5001:5001"
+
+  logging-service2:
+    build: 
+      context: ./logging-service
+    container_name: logging-service2
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+      CONSUMER_GROUP: "logging-group-2"
+      LOGGING_SERVICE_PORT: 5002
+    ports:
+      - "5002:5002"
+
+  logging-service3:
+    build: 
+      context: ./logging-service
+    container_name: logging-service3
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+      CONSUMER_GROUP: "logging-group-3"
+      LOGGING_SERVICE_PORT: 5003
+    ports:
+      - "5003:5003"
+
+  messages-service1:
+    build:
+      context: ./messages-service
+    container_name: messages-service1
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+      CONSUMER_GROUP: "messages-group-1"
+      MESSAGES_SERVICE_PORT: 6001
+    ports:
+      - "6001:6001"
+
+  messages-service2:
+    build:
+      context: ./messages-service
+    container_name: messages-service2
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+      CONSUMER_GROUP: "messages-group-2"
+      MESSAGES_SERVICE_PORT: 6002
+    ports:
+      - "6002:6002"
 
   facade-service:
     build:
       context: ./facade-service
     container_name: facade-service
-    ports:
-      - "8000:8000"
-    environment:
-      - FACADE_SERVICE_PORT=8000
-      - LOGGING_SERVICES=http://logging-service-1:8000,http://logging-service-2:8000,http://logging-service-3:8000
-      - MESSAGE_SERVICE_URL=http://message-service:8000 
     depends_on:
-      - logging-service-1
-      - logging-service-2
-      - logging-service-3
-      - message-service
-    networks:
-      - logging-network
-
-networks:
-  logging-network:
-    driver: bridge
+      - kafka1
+      - kafka2
+      - kafka3
+      - logging-service1
+      - logging-service2
+      - logging-service3
+      - messages-service1
+      - messages-service2
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
+      TOPIC_NAME: "test-topic"
+    ports:
+      - "5000:5000"
+    restart: always
