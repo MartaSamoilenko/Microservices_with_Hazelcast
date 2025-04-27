@@ -9,9 +9,9 @@ app = Flask(__name__)
 KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092,kafka2:9092,kafka3:9092")
 TOPIC_NAME = os.environ.get("TOPIC_NAME", "test-topic")
 
-CONSUMER_GROUP = os.environ.get("CONSUMER_GROUP", "logging-group-1")
+CONSUMER_GROUP = os.environ.get("CONSUMER_GROUP", "messages-group-1")
 
-messages_log = []
+stored_messages = []
 
 def consume_messages():
     consumer = KafkaConsumer(
@@ -24,15 +24,16 @@ def consume_messages():
     )
     for msg in consumer:
         decoded = msg.value.decode('utf-8')
-        print(f"[Logging-Service] Received message: {decoded}")
-        messages_log.append(decoded)
+        print(f"[Messages-Service] Received message: {decoded}")
+        stored_messages.append(decoded)
 
-@app.route('/logs', methods=['GET'])
-def get_logs():
-    return jsonify(messages_log)
+@app.route('/messages', methods=['GET'])
+def get_messages():
+    """Return the in-memory set of messages."""
+    return jsonify(stored_messages)
 
 if __name__ == '__main__':
     t = threading.Thread(target=consume_messages, daemon=True)
     t.start()
-    
-    app.run(host='0.0.0.0', port=int(os.environ.get("LOGGING_SERVICE_PORT", 5001)))
+
+    app.run(host='0.0.0.0', port=int(os.environ.get("MESSAGES_SERVICE_PORT", 6001)))
