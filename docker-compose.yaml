@@ -1,5 +1,16 @@
 version: '3.8'
 services:
+
+  consul:
+    image: hashicorp/consul:1.18
+    container_name: consul
+    command: >
+      consul agent -server -bootstrap-expect=1
+      -ui -client=0.0.0.0 -bind=0.0.0.0
+    ports:
+      - "8500:8500"          
+    networks: [backend]
+
   zookeeper:
     image: confluentinc/cp-zookeeper:latest
     container_name: zookeeper
@@ -8,6 +19,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    networks: [backend]
 
   kafka1:
     image: confluentinc/cp-kafka:latest
@@ -24,6 +36,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
+    networks: [backend]
 
   kafka2:
     image: confluentinc/cp-kafka:latest
@@ -40,6 +53,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
+    networks: [backend]
 
   kafka3:
     image: confluentinc/cp-kafka:latest
@@ -56,103 +70,98 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       KAFKA_MIN_INSYNC_REPLICAS: 2
+    networks: [backend]
 
   logging-service1:
     build: 
       context: ./logging-service
     container_name: logging-service1
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
       CONSUMER_GROUP: "logging-group-1"
       LOGGING_SERVICE_PORT: 5001
     ports:
       - "5001:5001"
+    networks: [backend]
 
   logging-service2:
     build: 
       context: ./logging-service
     container_name: logging-service2
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
       CONSUMER_GROUP: "logging-group-2"
       LOGGING_SERVICE_PORT: 5002
     ports:
       - "5002:5002"
+    networks: [backend]
 
   logging-service3:
     build: 
       context: ./logging-service
     container_name: logging-service3
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
       CONSUMER_GROUP: "logging-group-3"
       LOGGING_SERVICE_PORT: 5003
     ports:
       - "5003:5003"
+    networks: [backend]
 
   messages-service1:
     build:
       context: ./messages-service
     container_name: messages-service1
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
       CONSUMER_GROUP: "messages-group-1"
       MESSAGES_SERVICE_PORT: 6001
     ports:
       - "6001:6001"
+    networks: [backend]
 
   messages-service2:
     build:
       context: ./messages-service
     container_name: messages-service2
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
       CONSUMER_GROUP: "messages-group-2"
       MESSAGES_SERVICE_PORT: 6002
     ports:
       - "6002:6002"
+    networks: [backend]
 
   facade-service:
     build:
       context: ./facade-service
     container_name: facade-service
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
-      - logging-service1
-      - logging-service2
-      - logging-service3
-      - messages-service1
-      - messages-service2
+    depends_on: [kafka1, kafka2, kafka3, consul]
     environment:
+      CONSUL_HTTP_ADDR: "http://consul:8500"
       KAFKA_BOOTSTRAP_SERVERS: "kafka1:9092,kafka2:9092,kafka3:9092"
       TOPIC_NAME: "test-topic"
     ports:
       - "5000:5000"
     restart: always
+    networks: [backend]
+
+
+networks:
+  backend:
+    driver: bridge

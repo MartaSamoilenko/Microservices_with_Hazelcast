@@ -4,8 +4,10 @@ import random
 import os
 import sys
 from kafka import KafkaProducer
+from consul_helper import register, instances, kv
 
 app = Flask(__name__)
+app.add_url_rule("/health", "health", lambda: ("OK", 200))
 
 KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092,kafka2:9092,kafka3:9092")
 TOPIC_NAME = os.environ.get("TOPIC_NAME", "test-topic")
@@ -20,16 +22,12 @@ except Exception as e:
     print("ERROR: Could not connect to Kafka. Reason:", e)
     sys.exit(1)
 
-LOGGING_SERVICE_URLS = [
-    "http://logging-service1:5001/logs",
-    "http://logging-service2:5002/logs",
-    "http://logging-service3:5003/logs",
-]
+def log_urls():
+    return [u + "/logs" for u in instances("logging-service")]
 
-MESSAGES_SERVICE_URLS = [
-    "http://messages-service1:6001/messages",
-    "http://messages-service2:6002/messages",
-]
+def msg_urls():
+    return [u + "/messages" for u in instances("messages-service")]
+
 
 @app.route('/submit', methods=['POST'])
 def submit_message():
@@ -53,14 +51,19 @@ def retrieve_messages():
        3. Return combined result.
     """
     logs_collected = []
-    for log_url in LOGGING_SERVICE_URLS:
+    for log_url in log_urls():
         try:
             resp = requests.get(log_url, timeout=3)
             logs_collected.append({"service_url": log_url, "logs": resp.json()})
         except Exception as e:
             logs_collected.append({"service_url": log_url, "error": str(e)})
     
-    chosen_messages_url = random.choice(MESSAGES_SERVICE_URLS)
+    urls = msg_urls()
+
+    if not urls:
+        return jsonify({"error": "no messages-service instances alive"}), 503
+    chosen_messages_url = random.choice(urls)
+
     messages_collected = []
     try:
         resp = requests.get(chosen_messages_url, timeout=3)
@@ -74,4 +77,5 @@ def retrieve_messages():
     }), 200
 
 if __name__ == '__main__':
+    register("facade-service", 5000)
     app.run(host='0.0.0.0', port=5000)

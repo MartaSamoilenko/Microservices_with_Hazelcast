@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY messages_service.py .
+COPY consul_helper.py .
 
 EXPOSE 6001
 CMD ["python", "messages_service.py"]
