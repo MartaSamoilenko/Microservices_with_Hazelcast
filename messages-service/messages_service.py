@@ -4,10 +4,13 @@ import sys
 from kafka import KafkaConsumer
 import threading
 
-app = Flask(__name__)
+from consul_helper import register, kv
 
-KAFKA_BOOTSTRAP_SERVERS = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092,kafka2:9092,kafka3:9092")
-TOPIC_NAME = os.environ.get("TOPIC_NAME", "test-topic")
+app = Flask(__name__)
+app.add_url_rule("/health", "health", lambda: ("OK", 200)) 
+
+KAFKA_BOOTSTRAP_SERVERS = kv("config/kafka/bootstrap", "kafka1:9092,kafka2:9092,kafka3:9092")
+TOPIC_NAME = kv("config/kafka/topic",     "test-topic")
 
 CONSUMER_GROUP = os.environ.get("CONSUMER_GROUP", "messages-group-1")
 
@@ -27,13 +30,19 @@ def consume_messages():
         print(f"[Messages-Service] Received message: {decoded}")
         stored_messages.append(decoded)
 
+
+@app.route('/health', methods=['GET'])
+def get_healthy():
+    return ("OK", 200)
+
 @app.route('/messages', methods=['GET'])
 def get_messages():
     """Return the in-memory set of messages."""
     return jsonify(stored_messages)
 
 if __name__ == '__main__':
+    register("messages-service", 6001)
     t = threading.Thread(target=consume_messages, daemon=True)
     t.start()
 
-    app.run(host='0.0.0.0', port=int(os.environ.get("MESSAGES_SERVICE_PORT", 6001)))
+    app.run(host='0.0.0.0', port=6001)

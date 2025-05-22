@@ -31,7 +31,6 @@ def msg_urls():
 
 @app.route('/submit', methods=['POST'])
 def submit_message():
-    """Handle POST requests: Produce the given messages to Kafka."""
     data = request.json
     if not data or "messages" not in data:
         return jsonify({"error": "Expected JSON with key 'messages'"}), 400
@@ -45,11 +44,7 @@ def submit_message():
 
 @app.route('/retrieve', methods=['GET'])
 def retrieve_messages():
-    """Handle GET requests: 
-       1. Gather logs from all logging-service instances.
-       2. Pick a random messages-service instance and gather messages from it.
-       3. Return combined result.
-    """
+
     logs_collected = []
     for log_url in log_urls():
         try:
